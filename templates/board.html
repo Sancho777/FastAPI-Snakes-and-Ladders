@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Snakes and Ladders</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      .disabled-btn {
+        opacity: 0.5;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body
+    class="bg-gradient-to-t from-violet-300 to-blue-300 min-h-screen p-4 text-gray-800 flex flex-col"
+    data-last-move="{{ last_move[0] if last_move else '' }},{{ last_move[1] if last_move else 0 }},{{ last_move[2] if last_move else 0 }},{{ last_move[3] if last_move else '' }}"
+  >
+    <div class="max-w-6xl mx-auto w-full">
+      <!-- Title -->
+      <h1 class="text-4xl font-bold text-center text-black mb-6 mt-6">
+        Snakes and Ladders 🐍🎲
+      </h1>
+
+      <!-- Main Content Area -->
+      <div class="flex flex-col md:flex-row gap-4">
+        <!-- Left Column (Players - Hidden on mobile) -->
+        <div class="hidden md:block md:w-1/5">
+          <h2 class="text-lg font-semibold mb-2">Players</h2>
+          <ul>
+            {% for p in players %}
+            <li
+              class="flex items-center gap-2 {% if p.name == current_player %}font-bold text-indigo-600{% endif %}"
+            >
+              <span class="text-xl">{{ p.icon }}</span> {{ p.name }} {% if
+              p.name == current_player %}<span class="ml-1">🎲</span>{% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+
+        <!-- Center Column -->
+        <div class="flex-1">
+          <!-- Board -->
+          <div class="flex justify-center">
+            <div
+              class="grid grid-cols-10 grid-rows-10 border border-gray-400 max-w-[600px] w-full aspect-square bg-center bg-cover shadow-[0_0_20px_rgba(99,102,241,0.4)] rounded-lg"
+              style="background-image: url('/static/images/board5.png')"
+            >
+              {% for row in board %} {% for cell in row %}
+              <div
+                data-cell-number="{{ cell.number }}"
+                class="relative flex flex-col justify-center items-center border border-black/10 text-xs p-1 bg-white/20"
+              >
+                <div class="absolute top-1 left-1 font-bold text-[10px]">
+                  {{ cell.number }}
+                </div>
+                <div class="text-xl player-cell" data-cell="{{ cell.number }}">
+                  {% for icon in cell.players %}
+                  <span>{{ icon }}</span>
+                  {% endfor %}
+                </div>
+              </div>
+              {% endfor %} {% endfor %}
+            </div>
+          </div>
+
+          <!-- Controls + Turn -->
+          <div class="mt-6 flex justify-center gap-4 items-center">
+            {% if not winner %}
+            <div class="text-lg font-semibold mr-4 text-indigo-800">
+              🎯 Turn: {{ current_player }}
+            </div>
+            <form method="post" action="/roll" id="roll-form">
+              <button
+                id="roll-btn"
+                class="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded"
+              >
+                Roll Dice 🎲
+              </button>
+            </form>
+            {% endif %}
+            <form method="post" action="/restart">
+              <button
+                class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded"
+              >
+                Restart 🔄
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Right Column (Last Moves - Hidden on mobile) -->
+        <div class="hidden md:block md:w-1/5">
+          <h2 class="text-lg font-semibold mb-2">🕹️ Last Moves</h2>
+          <ul class="text-sm space-y-1">
+            {% for msg in messages %}
+            <li class="bg-white rounded px-2 py-1 shadow break-words">
+              {{ msg }}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+      <!-- Mobile Sections -->
+      <div class="md:hidden mt-6 space-y-6">
+        <!-- Players List -->
+        <div>
+          <h2 class="text-lg font-semibold mb-2">Players</h2>
+          <ul>
+            {% for p in players %}
+            <li
+              class="flex items-center gap-2 {% if p.name == current_player %}font-bold text-indigo-600{% endif %}"
+            >
+              <span class="text-xl">{{ p.icon }}</span> {{ p.name }} {% if
+              p.name == current_player %}<span class="ml-1">🎲</span>{% endif %}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+
+        <!-- Last Moves -->
+        <div>
+          <h2 class="text-lg font-semibold mb-2">🕹️ Last Moves</h2>
+          <ul class="text-sm space-y-1">
+            {% for msg in messages %}
+            <li class="bg-white rounded px-2 py-1 shadow break-words">
+              {{ msg }}
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+
+      {% if winner %}
+      <div class="mt-6 text-center text-xl font-bold text-green-700">
+        🎉 {{ winner }} wins the game!
+      </div>
+      {% endif %}
+    </div>
+    <script>
+      window.addEventListener("DOMContentLoaded", () => {
+        const body = document.querySelector("body");
+        const data = body.dataset.lastMove;
+
+        if (!data || data === ",0,0,") return;
+
+        const [playerName, fromStr, toStr, icon] = data.split(",");
+        const from = parseInt(fromStr);
+        const to = parseInt(toStr);
+        const stepDelay = 150; // ms per step
+        const isForward = to > from;
+        const path = [];
+
+        for (let i = from + 1; i <= to + 1; i++) {
+          path.push(i);
+        }
+
+        let currentStep = 0;
+
+        function clearIconFromAllCells() {
+          document.querySelectorAll(".player-cell").forEach((cell) => {
+            cell.innerHTML = cell.innerHTML.replace(icon, "");
+          });
+        }
+
+        function animateStep() {
+          if (currentStep >= path.length - 1) return;
+
+          const cellNum = path[currentStep];
+          const cellDiv = document.querySelector(
+            `[data-cell-number="${cellNum}"] .player-cell`
+          );
+
+          if (cellDiv) {
+            clearIconFromAllCells();
+            cellDiv.innerHTML += icon;
+          }
+
+          currentStep++;
+          setTimeout(animateStep, stepDelay);
+        }
+
+        if (path.length > 0) {
+          clearIconFromAllCells();
+          setTimeout(animateStep, stepDelay);
+        }
+      });
+    </script>
+  </body>
+</html>
