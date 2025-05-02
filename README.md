@@ -36,7 +36,7 @@ This project is a web-based implementation of the classic Snakes and Ladders boa
    python3 -m venv venv
    source venv/bin/activate # On Windows use `venv\Scripts\activate`
 3. **Install dependencies:**
-   pip install fastapi uvicorn jinja2
+   pip install -r requirements.txt
    (Alternatively, if there is a `requirements.txt`, run `pip install -r requirements.txt`.)
 4. **Run the server:**
    uvicorn main:app --reload
